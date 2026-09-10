@@ -63,11 +63,24 @@
     const audit={id:`${id}_audit`,type:'manual_correction',employeeId,entryId:id,time,reason,before:null,after};
     return {entry,audit};
   }
+
+  function monthlyExportModel(rows,month,employeeId){
+    const filtered=(rows||[]).filter(r=>(!month||String(r.date||'').slice(0,7)===month)&&(!employeeId||r.employeeId===employeeId));
+    const totals=filtered.reduce((t,r)=>({
+      target:t.target+(Number(r.target)||0),
+      actual:t.actual+(Number(r.actual)||0),
+      pause:t.pause+(Number(r.pause)||0),
+      credit:t.credit+(Number(r.credit)||0),
+      diff:t.diff+(Number(r.diff)||0)
+    }),{target:0,actual:0,pause:0,credit:0,diff:0});
+    return {rows:filtered,totals};
+  }
+
   function renameEmployee(employees,id,newName){
     const name=String(newName||'').trim();
     if(!name) return (employees||[]).map(e=>({...e}));
     return (employees||[]).map(e=>e.id===id?{...e,name}:({...e}));
   }
   function makeBackup(state,createdAt){return {backupFormat:'ameloua-timeclock-backup',backupVersion:2,createdAt,state};}
-  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,createManualEntryData,renameEmployee,makeBackup};
+  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,createManualEntryData,monthlyExportModel,renameEmployee,makeBackup};
 });
