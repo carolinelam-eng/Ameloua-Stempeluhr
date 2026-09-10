@@ -24,7 +24,7 @@
   function addDays(dateStr,days){const d=new Date(dateStr+'T12:00:00');d.setDate(d.getDate()+days);return d.toISOString().slice(0,10);}
   function copyWeekSchedules(schedules,employeeId,sourceMonday,targetMonday){
     const sourceDates=Array.from({length:7},(_,i)=>addDays(sourceMonday,i));
-    return (schedules||[]).filter(s=>s.employeeId===employeeId&&sourceDates.includes(s.date)).map(s=>({employeeId,date:addDays(targetMonday,sourceDates.indexOf(s.date)),start:s.start||'',targetMinutes:Number(s.targetMinutes)||0})).sort((a,b)=>a.date.localeCompare(b.date));
+    return (schedules||[]).filter(s=>s.employeeId===employeeId&&sourceDates.includes(s.date)).map(s=>({employeeId,date:addDays(targetMonday,sourceDates.indexOf(s.date)),start:s.start||'',targetMinutes:Number(s.targetMinutes)||0,absenceType:s.absenceType||'arbeit'})).sort((a,b)=>a.date.localeCompare(b.date));
   }
   function parseDuration(text){
     const t=String(text||'').trim().replace(',',':');
@@ -32,6 +32,30 @@
     const n=Number(t.replace(':','.')); if(Number.isFinite(n)&&n>=0)return Math.round(n*60); return null;
   }
   function durationText(minutes){minutes=Math.max(0,Number(minutes)||0);return `${Math.floor(minutes/60)}:${String(minutes%60).padStart(2,'0')}`;}
+
+  function normalizeScheduleInput(start,duration){
+    const st=String(start||'').trim(), raw=String(duration||'').trim();
+    const mins=raw===''?0:parseDuration(raw);
+    if(!st && (raw==='' || mins===0)) return {kind:'free'};
+    if(!st || mins==null || mins<=0) return {kind:'invalid'};
+    if(timeToMinutes(st)==null) return {kind:'invalid'};
+    return {kind:'work',start:st,targetMinutes:mins};
+  }
+  function absenceCreditMinutes(type,targetMinutes){
+    const paid=['krank','urlaub','feiertag','schule'];
+    return paid.includes(String(type||'arbeit'))?Math.max(0,Number(targetMinutes)||0):0;
+  }
+  function dayDifferenceMinutes(actualMinutes,targetMinutes,absenceType){
+    return Math.round((Number(actualMinutes)||0)+absenceCreditMinutes(absenceType,targetMinutes)-(Number(targetMinutes)||0));
+  }
+  function correctionSnapshot(value){
+    return {start:value&&value.start||null,end:value&&value.end||null,pauseMinutes:Math.max(0,Number(value&&value.pauseMinutes)||0)};
+  }
+  function renameEmployee(employees,id,newName){
+    const name=String(newName||'').trim();
+    if(!name) return (employees||[]).map(e=>({...e}));
+    return (employees||[]).map(e=>e.id===id?{...e,name}:({...e}));
+  }
   function makeBackup(state,createdAt){return {backupFormat:'ameloua-timeclock-backup',backupVersion:2,createdAt,state};}
-  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,makeBackup};
+  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,renameEmployee,makeBackup};
 });
