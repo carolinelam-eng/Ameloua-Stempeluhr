@@ -1,0 +1,9 @@
+{
+  "name": "Ameloua Arbeitszeiterfassung",
+  "short_name": "Arbeitszeit",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6f7f6",
+  "theme_color": "#B8C5BE",
+  "icons": []
+}

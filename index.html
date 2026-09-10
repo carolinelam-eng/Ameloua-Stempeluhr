@@ -1,0 +1,372 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#B8C5BE">
+<title>Ameloua Arbeitszeiterfassung</title>
+<link rel="manifest" href="manifest.webmanifest">
+<style>
+:root{
+  --sage:#B8C5BE;--sage2:#dfe7e3;--bg:#f6f7f6;--card:#fff;--text:#202522;
+  --muted:#6f7772;--border:#dde4e0;--danger:#a94444;--shadow:0 8px 24px rgba(30,40,35,.08)
+}
+*{box-sizing:border-box}
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Arial,sans-serif;background:var(--bg);color:var(--text)}
+.wrap{max-width:820px;margin:auto;padding:18px 16px 48px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+h1{font-size:25px;margin:0}h2{font-size:20px;margin:0 0 14px}
+.sub{font-size:14px;color:var(--muted);margin-top:4px}
+.card{background:var(--card);border:1px solid var(--border);border-radius:18px;padding:18px;box-shadow:var(--shadow);margin-bottom:16px}
+.clock{text-align:center;font-size:48px;font-weight:800;letter-spacing:-1px}
+.date{text-align:center;color:var(--muted);margin:6px 0 18px}
+label{display:block;font-size:14px;font-weight:700;margin:0 0 7px}
+select,input{width:100%;padding:13px 14px;border:1px solid var(--border);border-radius:12px;background:#fff;font:inherit}
+button{border:0;border-radius:12px;padding:13px 15px;font:inherit;font-weight:700;cursor:pointer}
+.primary{background:var(--sage);color:#18201c}
+.secondary{background:#edf2ef;color:#263029}
+.pause{background:#f0eadf;color:#5a4b2c}
+.danger{background:#f5e4e4;color:#7d2e2e}
+.ghost{background:transparent;border:1px solid var(--border)}
+.actions{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-top:14px}
+.actions button{min-height:70px;font-size:17px}
+.status{margin-top:14px;padding:12px 14px;border-radius:12px;background:#eef3f0;font-size:14px;line-height:1.4}
+.status strong{display:block;margin-bottom:3px}
+.hidden{display:none!important}
+.toolbar{display:flex;flex-wrap:wrap;gap:8px}.toolbar button{flex:1 1 150px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}
+.metrics{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}
+.metric{background:#f2f5f3;border-radius:12px;padding:12px}.metric b{display:block;font-size:19px;margin-top:5px}
+.notice{font-size:13px;color:var(--muted);line-height:1.5}
+table{width:100%;border-collapse:collapse;font-size:14px}
+th,td{padding:9px 7px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+th{font-size:12px;color:var(--muted);text-transform:uppercase}
+.modal{position:fixed;inset:0;background:rgba(0,0,0,.35);display:flex;align-items:center;justify-content:center;padding:18px;z-index:50}
+.modal .card{width:min(560px,100%);margin:0}
+.emp-row{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:9px 0;border-bottom:1px solid var(--border)}
+.emp-row:last-child{border-bottom:0}
+.small{padding:8px 10px;font-size:12px}
+@media(max-width:650px){.row,.row3,.metrics{grid-template-columns:1fr}.actions{grid-template-columns:1fr}.clock{font-size:40px}}
+</style>
+</head>
+<body>
+<div class="wrap">
+<header>
+  <div><h1>Arbeitszeiterfassung</h1><div class="sub">Ameloua Stoffe · zentrale Stempeluhr</div></div>
+  <button id="adminBtn" class="ghost small">Admin</button>
+</header>
+
+<section id="clockView">
+<div class="card">
+  <div class="clock" id="clock">--:--:--</div>
+  <div class="date" id="date"></div>
+
+  <label>Mitarbeiter/in</label>
+  <select id="employeeSelect"></select>
+
+  <div class="actions">
+    <button class="primary" id="clockInBtn">Einstempeln</button>
+    <button class="pause" id="pauseStartBtn">Pause starten</button>
+    <button class="secondary" id="pauseEndBtn">Pause beenden</button>
+    <button class="danger" id="clockOutBtn">Ausstempeln</button>
+  </div>
+
+  <div id="status" class="status">Bitte Mitarbeiter auswählen.</div>
+</div>
+<div class="card notice">
+  Die Daten dieser Version werden ausschließlich auf diesem Gerät im Browser gespeichert. Für die dauerhafte Sicherung bitte regelmäßig eine CSV-Datei exportieren.
+</div>
+</section>
+
+<section id="adminView" class="hidden">
+<div class="toolbar" style="margin-bottom:14px">
+  <button class="secondary" id="backBtn">Zur Stempeluhr</button>
+  <button class="secondary" id="exportBtn">CSV exportieren</button>
+  <button class="secondary" id="backupBtn">Backup sichern</button>
+  <button class="secondary" id="restoreBtn">Backup wiederherstellen</button>
+  <input type="file" id="restoreFile" accept="application/json,.json" class="hidden">
+  <button class="secondary" id="changePinBtn">Admin-PIN ändern</button>
+</div>
+
+<div class="card">
+<h2>Mitarbeiter verwalten</h2>
+<div class="row">
+  <div><label>Name</label><input id="newEmployeeName" placeholder="z. B. Mareike"></div>
+  <div style="display:flex;align-items:end"><button class="primary" id="addEmployeeBtn" style="width:100%">Mitarbeiter hinzufügen</button></div>
+</div>
+<div id="employeeList" style="margin-top:12px"></div>
+</div>
+
+<div class="card">
+<h2>Monatsübersicht</h2>
+<div class="row">
+  <div><label>Monat</label><input type="month" id="monthFilter"></div>
+  <div><label>Mitarbeiter</label><select id="adminEmployeeFilter"></select></div>
+</div>
+
+<div class="metrics">
+  <div class="metric"><span class="sub">Netto-Arbeitszeit</span><b id="sumNet">0:00 h</b></div>
+  <div class="metric"><span class="sub">Pausenzeit</span><b id="sumPause">0:00 h</b></div>
+  <div class="metric"><span class="sub">Schichten</span><b id="sumShifts">0</b></div>
+  <div class="metric"><span class="sub">Offene Schichten</span><b id="sumOpen">0</b></div>
+</div>
+
+<div style="overflow:auto;margin-top:14px">
+<table>
+<thead><tr><th>Name</th><th>Datum</th><th>Beginn</th><th>Ende</th><th>Pause</th><th>Netto</th><th></th></tr></thead>
+<tbody id="entriesBody"></tbody>
+</table>
+</div>
+</div>
+</section>
+</div>
+
+<div class="modal hidden" id="pinModal">
+<div class="card">
+<h2 id="pinTitle">Adminbereich</h2>
+<p class="notice" id="pinHelp"></p>
+<input type="password" inputmode="numeric" id="pinInput" placeholder="PIN">
+<div class="toolbar" style="margin-top:12px">
+  <button class="primary" id="pinConfirmBtn">Bestätigen</button>
+  <button class="secondary" id="pinCancelBtn">Abbrechen</button>
+</div>
+</div>
+</div>
+
+<div class="modal hidden" id="editModal">
+<div class="card">
+<h2>Zeiteintrag korrigieren</h2>
+<input type="hidden" id="editId">
+<div class="row3">
+  <div><label>Datum</label><input type="date" id="editDate"></div>
+  <div><label>Beginn</label><input type="time" id="editStart"></div>
+  <div><label>Ende</label><input type="time" id="editEnd"></div>
+</div>
+<div class="row" style="margin-top:10px">
+  <div><label>Pause gesamt (Minuten)</label><input type="number" min="0" id="editPauseMin"></div>
+  <div><label>Korrekturgrund</label><input id="editReason" placeholder="z. B. Ausstempeln vergessen"></div>
+</div>
+<div class="toolbar" style="margin-top:12px">
+  <button class="primary" id="saveEditBtn">Speichern</button>
+  <button class="secondary" id="cancelEditBtn">Abbrechen</button>
+</div>
+</div>
+</div>
+
+<script src="app-core.js"></script>
+<script>
+const KEY="ameloua_timeclock_v2";
+const $=id=>document.getElementById(id);
+let state=load();
+let pinMode="login";
+
+function load(){
+  try{const s=JSON.parse(localStorage.getItem(KEY)); if(s&&[2,3].includes(s.version)){s.version=3;return s;}}catch(e){}
+  return {version:3,adminPinHash:null,employees:[],entries:[],audit:[]};
+}
+function save(){localStorage.setItem(KEY,JSON.stringify(state))}
+function uuid(){return crypto.randomUUID?crypto.randomUUID():Date.now()+"-"+Math.random()}
+function nowISO(){return new Date().toISOString()}
+function localDateISO(d=new Date()){const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,10)}
+function esc(s){return String(s).replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m]))}
+async function hash(t){const b=new TextEncoder().encode(t);const d=await crypto.subtle.digest("SHA-256",b);return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("")}
+function hm(iso){return iso?new Date(iso).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"}):"—"}
+function dateDE(iso){return new Date(iso).toLocaleDateString("de-DE")}
+function empName(id){return state.employees.find(x=>x.id===id)?.name||"(gelöscht)"}
+function openEntry(empId){return state.entries.find(e=>e.employeeId===empId&&!e.end)}
+function openPause(entry){return entry?.pauses?.find(p=>!p.end)}
+
+function pauseMinutes(e){
+  let total=0;
+  (e.pauses||[]).forEach(p=>{
+    const end=p.end?new Date(p.end):new Date();
+    total+=Math.max(0,Math.round((end-new Date(p.start))/60000));
+  });
+  return total;
+}
+function grossMinutes(e){
+  const end=e.end?new Date(e.end):new Date();
+  return Math.max(0,Math.round((end-new Date(e.start))/60000));
+}
+function netMinutes(e){return Math.max(0,grossMinutes(e)-pauseMinutes(e))}
+function fmtMin(m){const h=Math.floor(m/60),min=m%60;return `${h}:${String(min).padStart(2,"0")} h`}
+
+function tick(){
+  const n=new Date();
+  $("clock").textContent=n.toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit",second:"2-digit"});
+  $("date").textContent=n.toLocaleDateString("de-DE",{weekday:"long",day:"2-digit",month:"long",year:"numeric"});
+  refreshStatus();
+}
+setInterval(tick,1000); tick();
+
+function refreshEmployees(){
+  const s=$("employeeSelect"), a=$("adminEmployeeFilter");
+  const cv=s.value,av=a.value;
+  s.innerHTML='<option value="">Bitte auswählen</option>';
+  a.innerHTML='<option value="">Alle Mitarbeiter</option>';
+  state.employees.filter(e=>e.active!==false).sort((x,y)=>x.name.localeCompare(y.name)).forEach(e=>s.insertAdjacentHTML("beforeend",`<option value="${e.id}">${esc(e.name)}</option>`));
+  state.employees.slice().sort((x,y)=>x.name.localeCompare(y.name)).forEach(e=>a.insertAdjacentHTML("beforeend",`<option value="${e.id}">${esc(e.name)}${e.active===false?" (inaktiv)":""}</option>`));
+  if([...s.options].some(o=>o.value===cv))s.value=cv;
+  if([...a.options].some(o=>o.value===av))a.value=av;
+  renderEmployeeList(); refreshStatus(); renderEntries();
+}
+function refreshStatus(){
+  const id=$("employeeSelect").value;
+  if(!id){$("status").innerHTML="Bitte Mitarbeiter auswählen.";return}
+  const e=openEntry(id);
+  if(!e){$("status").innerHTML="<strong>Nicht eingestempelt</strong>Aktuell läuft keine Arbeitszeit.";return}
+  const p=openPause(e);
+  if(p){
+    $("status").innerHTML=`<strong>Pause läuft seit ${hm(p.start)} Uhr</strong>Arbeitsbeginn: ${hm(e.start)} Uhr · bisherige Pause: ${fmtMin(pauseMinutes(e))}`;
+  }else{
+    $("status").innerHTML=`<strong>Eingestempelt seit ${hm(e.start)} Uhr</strong>Netto-Arbeitszeit: ${fmtMin(netMinutes(e))} · Pause: ${fmtMin(pauseMinutes(e))}`;
+  }
+}
+
+$("employeeSelect").addEventListener("change",refreshStatus);
+
+$("clockInBtn").onclick=()=>{
+  const id=$("employeeSelect").value;if(!id)return alert("Bitte zuerst einen Mitarbeiter auswählen.");
+  if(openEntry(id))return alert("Diese Person ist bereits eingestempelt.");
+  const t=nowISO();
+  state.entries.push({id:uuid(),employeeId:id,start:t,end:null,pauses:[],createdAt:t,updatedAt:t,correctionReason:""});
+  state.audit.push({id:uuid(),type:"clock_in",employeeId:id,time:t});
+  save();refreshStatus();
+};
+$("pauseStartBtn").onclick=()=>{
+  const id=$("employeeSelect").value;if(!id)return alert("Bitte zuerst einen Mitarbeiter auswählen.");
+  const e=openEntry(id);if(!e)return alert("Die Person muss zuerst eingestempelt werden.");
+  if(openPause(e))return alert("Die Pause läuft bereits.");
+  const t=nowISO();e.pauses.push({id:uuid(),start:t,end:null});e.updatedAt=t;
+  state.audit.push({id:uuid(),type:"pause_start",employeeId:id,entryId:e.id,time:t});
+  save();refreshStatus();
+};
+$("pauseEndBtn").onclick=()=>{
+  const id=$("employeeSelect").value;if(!id)return alert("Bitte zuerst einen Mitarbeiter auswählen.");
+  const e=openEntry(id);if(!e)return alert("Es läuft keine Arbeitszeit.");
+  const p=openPause(e);if(!p)return alert("Es läuft aktuell keine Pause.");
+  const t=nowISO();p.end=t;e.updatedAt=t;
+  state.audit.push({id:uuid(),type:"pause_end",employeeId:id,entryId:e.id,time:t});
+  save();refreshStatus();
+};
+$("clockOutBtn").onclick=()=>{
+  const id=$("employeeSelect").value;if(!id)return alert("Bitte zuerst einen Mitarbeiter auswählen.");
+  const e=openEntry(id);if(!e)return alert("Es läuft keine Arbeitszeit.");
+  const t=nowISO();
+  AppCore.closeOpenPause(e,t);
+  e.end=t;e.updatedAt=t;
+  state.audit.push({id:uuid(),type:"clock_out",employeeId:id,entryId:e.id,time:t});
+  save();refreshStatus();
+};
+
+function showPin(mode){
+  pinMode=mode;$("pinInput").value="";
+  $("pinTitle").textContent=mode==="setup"?"Admin-PIN festlegen":mode==="change"?"Admin-PIN ändern":"Adminbereich";
+  $("pinHelp").textContent=mode==="setup"?"Beim ersten Öffnen legst du eine PIN für den Verwaltungsbereich fest.":mode==="change"?"Neue PIN mit mindestens 4 Zeichen festlegen.":"Bitte Admin-PIN eingeben.";
+  $("pinModal").classList.remove("hidden");
+}
+$("adminBtn").onclick=()=>showPin(state.adminPinHash?"login":"setup");
+$("pinCancelBtn").onclick=()=>$("pinModal").classList.add("hidden");
+$("pinConfirmBtn").onclick=async()=>{
+  const p=$("pinInput").value.trim();if(p.length<4)return alert("Die PIN muss mindestens 4 Zeichen haben.");
+  const h=await hash(p);
+  if(pinMode==="login"){if(h!==state.adminPinHash)return alert("PIN ist nicht korrekt.");$("pinModal").classList.add("hidden");showAdmin()}
+  else{state.adminPinHash=h;save();$("pinModal").classList.add("hidden");if(pinMode==="setup")showAdmin()}
+};
+$("changePinBtn").onclick=()=>showPin("change");
+function showAdmin(){$("clockView").classList.add("hidden");$("adminView").classList.remove("hidden");refreshEmployees()}
+$("backBtn").onclick=()=>{$("adminView").classList.add("hidden");$("clockView").classList.remove("hidden");refreshStatus()};
+
+$("addEmployeeBtn").onclick=()=>{
+  const name=$("newEmployeeName").value.trim();if(!name)return alert("Bitte einen Namen eingeben.");
+  state.employees.push({id:uuid(),name,active:true,createdAt:nowISO()});
+  $("newEmployeeName").value="";save();refreshEmployees();
+};
+function renderEmployeeList(){
+  const box=$("employeeList");
+  if(!state.employees.length){box.innerHTML='<div class="notice">Noch keine Mitarbeiter angelegt.</div>';return}
+  box.innerHTML=state.employees.map(e=>`<div class="emp-row"><span>${esc(e.name)} ${e.active===false?'<span class="sub">(inaktiv)</span>':''}</span><button class="ghost small" onclick="toggleEmp('${e.id}')">${e.active===false?"Aktivieren":"Deaktivieren"}</button></div>`).join("");
+}
+window.toggleEmp=id=>{const e=state.employees.find(x=>x.id===id);if(!e)return;e.active=e.active===false?true:false;save();refreshEmployees()};
+
+function monthOf(iso){const d=new Date(iso);const x=new Date(d.getTime()-d.getTimezoneOffset()*60000);return x.toISOString().slice(0,7)}
+function renderEntries(){
+  if(!$("entriesBody"))return;
+  const month=$("monthFilter").value;
+  const emp=$("adminEmployeeFilter").value;
+  const rows=state.entries.filter(e=>(!month||monthOf(e.start)===month)&&(!emp||e.employeeId===emp)).sort((a,b)=>new Date(b.start)-new Date(a.start));
+  $("entriesBody").innerHTML=rows.map(e=>`<tr>
+    <td>${esc(empName(e.employeeId))}</td>
+    <td>${dateDE(e.start)}</td>
+    <td>${hm(e.start)}</td>
+    <td>${hm(e.end)}</td>
+    <td>${fmtMin(pauseMinutes(e))}</td>
+    <td>${e.end?fmtMin(netMinutes(e)):"offen"}</td>
+    <td><button class="ghost small" onclick="editEntry('${e.id}')">Korrigieren</button></td>
+  </tr>`).join("") || '<tr><td colspan="7" class="notice">Keine Einträge vorhanden.</td></tr>';
+  const closed=rows.filter(e=>e.end);
+  $("sumNet").textContent=fmtMin(closed.reduce((s,e)=>s+netMinutes(e),0));
+  $("sumPause").textContent=fmtMin(rows.reduce((s,e)=>s+pauseMinutes(e),0));
+  $("sumShifts").textContent=rows.length;
+  $("sumOpen").textContent=rows.filter(e=>!e.end).length;
+}
+$("monthFilter").value=localDateISO().slice(0,7);
+$("monthFilter").addEventListener("change",renderEntries);
+$("adminEmployeeFilter").addEventListener("change",renderEntries);
+
+window.editEntry=id=>{
+  const e=state.entries.find(x=>x.id===id);if(!e)return;
+  $("editId").value=id;$("editDate").value=localDateISO(new Date(e.start));$("editStart").value=hm(e.start);
+  $("editEnd").value=e.end?hm(e.end):"";$("editPauseMin").value=pauseMinutes(e);$("editReason").value=e.correctionReason||"";
+  $("editModal").classList.remove("hidden");
+};
+$("cancelEditBtn").onclick=()=>$("editModal").classList.add("hidden");
+$("saveEditBtn").onclick=()=>{
+  const e=state.entries.find(x=>x.id===$("editId").value);if(!e)return;
+  const date=$("editDate").value,start=$("editStart").value,end=$("editEnd").value,reason=$("editReason").value.trim();
+  if(!date||!start)return alert("Datum und Beginn sind erforderlich.");
+  const startDate=new Date(`${date}T${start}:00`);
+  const endDate=end?new Date(`${date}T${end}:00`):null;
+  if(endDate&&endDate<startDate)return alert("Das Ende darf nicht vor dem Beginn liegen.");
+  const pm=Math.max(0,parseInt($("editPauseMin").value||"0",10));
+  e.start=startDate.toISOString();e.end=endDate?endDate.toISOString():null;
+  e.pauses=pm?[{id:uuid(),start:startDate.toISOString(),end:new Date(startDate.getTime()+pm*60000).toISOString(),manual:true}]:[];
+  e.correctionReason=reason;e.updatedAt=nowISO();
+  state.audit.push({id:uuid(),type:"manual_correction",entryId:e.id,employeeId:e.employeeId,time:nowISO(),reason});
+  save();$("editModal").classList.add("hidden");renderEntries();
+};
+
+$("backupBtn").onclick=()=>{
+  const backup=AppCore.makeBackup(state,nowISO());
+  const blob=new Blob([JSON.stringify(backup,null,2)],{type:"application/json"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`ameloua_backup_${localDateISO()}.json`;a.click();setTimeout(()=>URL.revokeObjectURL(a.href),500);
+};
+$("restoreBtn").onclick=()=>$("restoreFile").click();
+$("restoreFile").onchange=async ev=>{
+  const f=ev.target.files[0];if(!f)return;
+  try{
+    const obj=JSON.parse(await f.text());const restored=obj.backupFormat==="ameloua-timeclock-backup"?obj.state:obj;
+    if(!AppCore.validateBackup(restored))throw new Error("Ungültiges Backup");
+    if(!confirm("Dieses Backup wiederherstellen? Die aktuell gespeicherten Daten werden dadurch ersetzt."))return;
+    state=restored;state.version=3;save();refreshEmployees();alert("Backup wurde wiederhergestellt.");
+  }catch(e){alert("Die Backup-Datei konnte nicht wiederhergestellt werden.");}
+  ev.target.value="";
+};
+
+$("exportBtn").onclick=()=>{
+  const header=["Mitarbeiter","Datum","Beginn","Ende","Pause_Minuten","Netto_Minuten","Netto_Stunden","Korrekturgrund"];
+  const data=state.entries.slice().sort((a,b)=>new Date(a.start)-new Date(b.start)).map(e=>{
+    const n=e.end?netMinutes(e):"";
+    return [empName(e.employeeId),localDateISO(new Date(e.start)),hm(e.start),e.end?hm(e.end):"",pauseMinutes(e),n,n===""?"":(n/60).toFixed(2).replace(".",","),e.correctionReason||""];
+  });
+  const csv=[header,...data].map(r=>r.map(v=>`"${String(v).replaceAll('"','""')}"`).join(";")).join("\n");
+  const blob=new Blob(["\ufeff"+csv],{type:"text/csv;charset=utf-8"});
+  const a=document.createElement("a");a.href=URL.createObjectURL(blob);a.download=`arbeitszeiten_${localDateISO()}.csv`;a.click();URL.revokeObjectURL(a.href);
+};
+
+refreshEmployees();
+if("serviceWorker" in navigator){navigator.serviceWorker.register("sw.js").catch(()=>{})}
+</script>
+</body>
+</html>
