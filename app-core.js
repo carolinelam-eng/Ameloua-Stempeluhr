@@ -51,11 +51,23 @@
   function correctionSnapshot(value){
     return {start:value&&value.start||null,end:value&&value.end||null,pauseMinutes:Math.max(0,Number(value&&value.pauseMinutes)||0)};
   }
+
+  function createManualEntryData({employeeId,date,start,end,pauseMinutes=0,reason='',entryId,timestamp}){
+    const sd=new Date(`${date}T${start}:00`);
+    const ed=end?new Date(`${date}T${end}:00`):null;
+    const pm=Math.max(0,Number(pauseMinutes)||0);
+    const time=timestamp||new Date().toISOString();
+    const id=entryId||`manual_${Date.now()}`;
+    const entry={id,employeeId,start:sd.toISOString(),end:ed?ed.toISOString():null,pauses:pm?[{id:`${id}_pause`,start:sd.toISOString(),end:new Date(sd.getTime()+pm*60000).toISOString(),manual:true}]:[],createdAt:time,updatedAt:time,correctionReason:reason};
+    const after=correctionSnapshot({start:entry.start,end:entry.end,pauseMinutes:pm});
+    const audit={id:`${id}_audit`,type:'manual_correction',employeeId,entryId:id,time,reason,before:null,after};
+    return {entry,audit};
+  }
   function renameEmployee(employees,id,newName){
     const name=String(newName||'').trim();
     if(!name) return (employees||[]).map(e=>({...e}));
     return (employees||[]).map(e=>e.id===id?{...e,name}:({...e}));
   }
   function makeBackup(state,createdAt){return {backupFormat:'ameloua-timeclock-backup',backupVersion:2,createdAt,state};}
-  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,renameEmployee,makeBackup};
+  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,createManualEntryData,renameEmployee,makeBackup};
 });
