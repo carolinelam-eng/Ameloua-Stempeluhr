@@ -81,6 +81,20 @@
     if(!name) return (employees||[]).map(e=>({...e}));
     return (employees||[]).map(e=>e.id===id?{...e,name}:({...e}));
   }
+
+  function personalOverviewModel({employeeId,today,schedules=[],days=[]}){
+    const monday=addDays(today,-((new Date(today+'T12:00:00').getDay()||7)-1));
+    const weekDays=Array.from({length:7},(_,i)=>{
+      const date=addDays(monday,i), sc=getSchedule(schedules,employeeId,date), day=days.find(d=>d.date===date)||{};
+      const target=Number(sc&&sc.targetMinutes)||0, actual=Number(day.actualMinutes)||0, pause=Number(day.pauseMinutes)||0;
+      const credit=absenceCreditMinutes(sc&&sc.absenceType,target), diff=actual+credit-target;
+      return {date,target,actual,pause,credit,diff,absenceType:sc&&sc.absenceType||'arbeit'};
+    });
+    const total=rows=>rows.reduce((t,r)=>({target:t.target+r.target,actual:t.actual+r.actual,pause:t.pause+r.pause,credit:t.credit+r.credit,diff:t.diff+r.diff}),{target:0,actual:0,pause:0,credit:0,diff:0});
+    const todayRow=weekDays.find(r=>r.date===today)||{target:0,actual:0,pause:0,credit:0,diff:0};
+    return {today:{target:todayRow.target,actual:todayRow.actual,pause:todayRow.pause,credit:todayRow.credit,diff:todayRow.diff},week:total(weekDays),weekDays};
+  }
+
   function makeBackup(state,createdAt){return {backupFormat:'ameloua-timeclock-backup',backupVersion:2,createdAt,state};}
-  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,createManualEntryData,monthlyExportModel,renameEmployee,makeBackup};
+  return {timeToMinutes,minutesBetweenTimes,formatMinutes,differenceMinutes,formatDifference,getSchedule,sumScheduledMinutes,copyWeekSchedules,parseDuration,durationText,addDays,normalizeScheduleInput,absenceCreditMinutes,dayDifferenceMinutes,correctionSnapshot,createManualEntryData,monthlyExportModel,renameEmployee,personalOverviewModel,makeBackup};
 });
